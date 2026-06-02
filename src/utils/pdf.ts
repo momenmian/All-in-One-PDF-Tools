@@ -91,39 +91,25 @@ export async function rotateCropPdf(
     const bottom = shouldTransform ? clamp(crop.bottom, 0, height - 1) : 0;
     const croppedWidth = shouldTransform ? Math.max(1, width - left - clamp(crop.right, 0, width - left - 1)) : width;
     const croppedHeight = shouldTransform ? Math.max(1, height - bottom - clamp(crop.top, 0, height - bottom - 1)) : height;
-
-    const embedded = await output.embedPage(sourcePage, {
-      left,
-      bottom,
-      right: left + croppedWidth,
-      top: bottom + croppedHeight,
-    });
+    const embedded = await output.embedPage(sourcePage);
+    const page = output.addPage([croppedWidth, croppedHeight]);
 
     if (!shouldTransform || normalizeAngle(angle) === 0) {
-      const page = output.addPage([croppedWidth, croppedHeight]);
-      page.drawPage(embedded, { x: 0, y: 0, width: croppedWidth, height: croppedHeight });
+      page.drawPage(embedded, { x: -left, y: -bottom, width, height });
       continue;
     }
 
-    const radians = (normalizeAngle(angle) * Math.PI) / 180;
-    const rotatedWidth = Math.abs(croppedWidth * Math.cos(radians)) + Math.abs(croppedHeight * Math.sin(radians));
-    const rotatedHeight = Math.abs(croppedWidth * Math.sin(radians)) + Math.abs(croppedHeight * Math.cos(radians));
-    const rotatedCorners = [
-      rotatePoint(0, 0, radians),
-      rotatePoint(croppedWidth, 0, radians),
-      rotatePoint(0, croppedHeight, radians),
-      rotatePoint(croppedWidth, croppedHeight, radians),
-    ];
-    const minX = Math.min(...rotatedCorners.map((point) => point.x));
-    const minY = Math.min(...rotatedCorners.map((point) => point.y));
-    const page = output.addPage([rotatedWidth, rotatedHeight]);
+    const exportAngle = -angle;
+    const radians = (exportAngle * Math.PI) / 180;
+    const center = { x: width / 2, y: height / 2 };
+    const rotatedCenter = rotatePoint(center.x, center.y, radians);
 
     page.drawPage(embedded, {
-      x: -minX,
-      y: -minY,
-      width: croppedWidth,
-      height: croppedHeight,
-      rotate: degrees(angle),
+      x: center.x - left - rotatedCenter.x,
+      y: center.y - bottom - rotatedCenter.y,
+      width,
+      height,
+      rotate: degrees(exportAngle),
       xSkew: degrees(0),
       ySkew: degrees(0),
     });

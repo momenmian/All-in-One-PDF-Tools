@@ -12,6 +12,8 @@ type PdfPageInfo = {
   height: number;
 };
 
+type CropDragMode = "move" | "top" | "right" | "bottom" | "left" | "top-left" | "top-right" | "bottom-right" | "bottom-left";
+
 const emptyCrop: CropEdges = { top: 0, right: 0, bottom: 0, left: 0 };
 
 export function RotateCropTool() {
@@ -24,6 +26,7 @@ export function RotateCropTool() {
   const [angleByPage, setAngleByPage] = useState<Map<number, number>>(new Map([[0, 0]]));
   const [cropByPage, setCropByPage] = useState<Map<number, CropEdges>>(new Map([[0, emptyCrop]]));
   const [showGrid, setShowGrid] = useState(true);
+  const [showOutputPreview, setShowOutputPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resultUrl, setResultUrl] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -32,12 +35,14 @@ export function RotateCropTool() {
 
   const currentAngle = angleByPage.get(currentPage) ?? 0;
   const currentCrop = cropByPage.get(currentPage) ?? emptyCrop;
+  const cropInset = pageInfo
+    ? `${(currentCrop.top / pageInfo.height) * 100}% ${(currentCrop.right / pageInfo.width) * 100}% ${(currentCrop.bottom / pageInfo.height) * 100}% ${(currentCrop.left / pageInfo.width) * 100}%`
+    : "0";
   const cropStyle = useMemo(() => {
-    if (!pageInfo) return {};
     return {
-      inset: `${(currentCrop.top / pageInfo.height) * 100}% ${(currentCrop.right / pageInfo.width) * 100}% ${(currentCrop.bottom / pageInfo.height) * 100}% ${(currentCrop.left / pageInfo.width) * 100}%`,
+      inset: cropInset,
     };
-  }, [currentCrop, pageInfo]);
+  }, [cropInset]);
 
   useEffect(() => {
     if (!file) return;
@@ -75,6 +80,7 @@ export function RotateCropTool() {
     if (!nextFile) return;
     setError("");
     setResultUrl("");
+    setShowOutputPreview(false);
     const validation = await validatePdfFile(nextFile);
     if (!validation.ok) {
       setError(validation.message ?? "The PDF could not be added.");
@@ -89,20 +95,27 @@ export function RotateCropTool() {
 
   function setAngleForScope(angle: number) {
     setResultUrl("");
+    setShowOutputPreview(false);
     setAngleByPage((current) => {
       const next = new Map(current);
-      selectedPages.forEach((page) => next.set(page, angle));
+      getActivePageScope().forEach((page) => next.set(page, angle));
       return next;
     });
   }
 
   function setCropForScope(crop: CropEdges) {
     setResultUrl("");
+    setShowOutputPreview(false);
     setCropByPage((current) => {
       const next = new Map(current);
-      selectedPages.forEach((page) => next.set(page, crop));
+      const nextCrop = pageInfo ? constrainCrop(crop, pageInfo) : crop;
+      getActivePageScope().forEach((page) => next.set(page, nextCrop));
       return next;
     });
+  }
+
+  function getActivePageScope() {
+    return selectedPages.has(currentPage) ? selectedPages : new Set([currentPage]);
   }
 
   function selectScope(scope: "current" | "all") {
@@ -128,8 +141,18 @@ export function RotateCropTool() {
     setError("");
     setResultUrl("");
     try {
-      const blob = await rotateCropPdf(file, selectedPages, angleByPage, cropByPage);
+      const pagesToTransform = new Set([
+        ...selectedPages,
+        ...Array.from(angleByPage.entries())
+          .filter(([, angle]) => angle !== 0)
+          .map(([page]) => page),
+        ...Array.from(cropByPage.entries())
+          .filter(([, crop]) => crop.top !== 0 || crop.right !== 0 || crop.bottom !== 0 || crop.left !== 0)
+          .map(([page]) => page),
+      ]);
+      const blob = await rotateCropPdf(file, pagesToTransform, angleByPage, cropByPage);
       setResultUrl(URL.createObjectURL(blob));
+      setShowOutputPreview(true);
     } catch {
       setError("The PDF could not be rotated or cropped. Try a different PDF or smaller crop values.");
     } finally {
@@ -137,10 +160,12 @@ export function RotateCropTool() {
     }
   }
 
-  function onCropDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function onCropDrag(event: React.PointerEvent<HTMLElement>, mode: CropDragMode) {
     if (!pageInfo || !cropRef.current) return;
     const rect = cropRef.current.parentElement?.getBoundingClientRect();
     if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
     dragState.current = { startX: event.clientX, startY: event.clientY, startCrop: currentCrop };
     event.currentTarget.setPointerCapture(event.pointerId);
 
@@ -148,12 +173,7 @@ export function RotateCropTool() {
       if (!dragState.current) return;
       const dx = ((moveEvent.clientX - dragState.current.startX) / rect.width) * pageInfo.width;
       const dy = ((moveEvent.clientY - dragState.current.startY) / rect.height) * pageInfo.height;
-      setCropForScope({
-        top: Math.max(0, dragState.current.startCrop.top + dy),
-        right: Math.max(0, dragState.current.startCrop.right - dx),
-        bottom: Math.max(0, dragState.current.startCrop.bottom - dy),
-        left: Math.max(0, dragState.current.startCrop.left + dx),
-      });
+      setCropForScope(getNextCrop(dragState.current.startCrop, mode, dx, dy));
     };
 
     const onUp = () => {
@@ -272,16 +292,35 @@ export function RotateCropTool() {
           <div className="preview-panel">
             <div className="preview-toolbar">
               <span>Page {currentPage + 1}</span>
-              <strong>{currentAngle}°</strong>
+              <strong>{showOutputPreview ? "Cropped preview" : `${currentAngle}°`}</strong>
             </div>
             <div className={`preview-stage ${showGrid ? "with-grid" : ""}`}>
-              <div className="page-preview" style={{ transform: `rotate(${currentAngle}deg)` }}>
-                <canvas ref={canvasRef} />
+              <div
+                className={`page-frame ${showOutputPreview ? "is-output-preview" : ""}`}
+                style={showOutputPreview ? { clipPath: `inset(${cropInset})` } : undefined}
+              >
+                <div className="page-preview" style={{ transform: `rotate(${currentAngle}deg)` }}>
+                  <canvas ref={canvasRef} />
+                </div>
+                {showGrid ? <span className="page-alignment-grid" aria-hidden="true" /> : null}
                 <span className="guide vertical-guide" />
                 <span className="guide horizontal-guide" />
                 <span className="guide center-dot" />
-                <div ref={cropRef} className="crop-box" style={cropStyle} onPointerDown={onCropDrag}>
+                {!showOutputPreview ? <span className="crop-shade" style={cropStyle} aria-hidden="true" /> : null}
+                <div ref={cropRef} className="crop-box" style={showOutputPreview ? { inset: 0 } : cropStyle} onPointerDown={(event) => onCropDrag(event, "move")}>
                   <span>Drag crop area</span>
+                  {!showOutputPreview ? (
+                    <>
+                      <button className="crop-handle top" type="button" aria-label="Crop from top" onPointerDown={(event) => onCropDrag(event, "top")} />
+                      <button className="crop-handle right" type="button" aria-label="Crop from right" onPointerDown={(event) => onCropDrag(event, "right")} />
+                      <button className="crop-handle bottom" type="button" aria-label="Crop from bottom" onPointerDown={(event) => onCropDrag(event, "bottom")} />
+                      <button className="crop-handle left" type="button" aria-label="Crop from left" onPointerDown={(event) => onCropDrag(event, "left")} />
+                      <button className="crop-handle corner top-left" type="button" aria-label="Crop from top left" onPointerDown={(event) => onCropDrag(event, "top-left")} />
+                      <button className="crop-handle corner top-right" type="button" aria-label="Crop from top right" onPointerDown={(event) => onCropDrag(event, "top-right")} />
+                      <button className="crop-handle corner bottom-right" type="button" aria-label="Crop from bottom right" onPointerDown={(event) => onCropDrag(event, "bottom-right")} />
+                      <button className="crop-handle corner bottom-left" type="button" aria-label="Crop from bottom left" onPointerDown={(event) => onCropDrag(event, "bottom-left")} />
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -290,4 +329,35 @@ export function RotateCropTool() {
       ) : null}
     </section>
   );
+}
+
+function getNextCrop(startCrop: CropEdges, mode: CropDragMode, dx: number, dy: number): CropEdges {
+  const next = { ...startCrop };
+
+  if (mode === "move") {
+    next.top += dy;
+    next.right -= dx;
+    next.bottom -= dy;
+    next.left += dx;
+  }
+  if (mode.includes("top")) next.top += dy;
+  if (mode.includes("right")) next.right -= dx;
+  if (mode.includes("bottom")) next.bottom -= dy;
+  if (mode.includes("left")) next.left += dx;
+
+  return next;
+}
+
+function constrainCrop(crop: CropEdges, pageInfo: PdfPageInfo): CropEdges {
+  const minSize = Math.min(pageInfo.width, pageInfo.height) * 0.04;
+  const left = clampNumber(crop.left, 0, pageInfo.width - minSize);
+  const right = clampNumber(crop.right, 0, pageInfo.width - left - minSize);
+  const top = clampNumber(crop.top, 0, pageInfo.height - minSize);
+  const bottom = clampNumber(crop.bottom, 0, pageInfo.height - top - minSize);
+
+  return { top, right, bottom, left };
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
 }
