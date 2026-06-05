@@ -19,6 +19,14 @@ export type CropEdges = {
   left: number;
 };
 
+export type CompressionResult = {
+  blob: Blob;
+  originalSize: number;
+  compressedSize: number;
+  savedBytes: number;
+  savingsPercent: number;
+};
+
 export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -70,6 +78,33 @@ export async function mergePdfs(files: File[]) {
   }
 
   return pdfBytesToBlob(await output.save());
+}
+
+export async function compressPdf(file: File): Promise<CompressionResult> {
+  const input = await PDFDocument.load(await file.arrayBuffer(), {
+    ignoreEncryption: false,
+    updateMetadata: false,
+  });
+  const output = await PDFDocument.create({ updateMetadata: false });
+  const pages = await output.copyPages(input, input.getPageIndices());
+  pages.forEach((page) => output.addPage(page));
+
+  const compressedBytes = await output.save({
+    useObjectStreams: true,
+    addDefaultPage: false,
+    objectsPerTick: 100,
+    updateFieldAppearances: false,
+  });
+  const blob = pdfBytesToBlob(compressedBytes);
+  const savedBytes = Math.max(0, file.size - blob.size);
+
+  return {
+    blob,
+    originalSize: file.size,
+    compressedSize: blob.size,
+    savedBytes,
+    savingsPercent: file.size > 0 ? (savedBytes / file.size) * 100 : 0,
+  };
 }
 
 export async function rotateCropPdf(

@@ -1,4 +1,5 @@
 import { FileText } from "lucide-react";
+import { CompressTool } from "./pages/CompressTool";
 import { HomePage } from "./pages/HomePage";
 import { MergeTool } from "./pages/MergeTool";
 import { RotateCropTool } from "./pages/RotateCropTool";
@@ -22,6 +23,8 @@ export function App() {
           <MergeTool />
         ) : path === "/rotate-crop" ? (
           <RotateCropTool />
+        ) : path === "/compress" ? (
+          <CompressTool />
         ) : (
           <HomePage />
         )}

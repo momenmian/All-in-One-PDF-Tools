@@ -2,7 +2,7 @@
 
 PDFForge is a local-first PDF toolkit built with React, TypeScript, and Vite. It is designed to make everyday PDF work fast, private, and approachable by processing files directly in the browser whenever possible.
 
-The current version includes working tools for merging PDFs and visually rotating or cropping pages. The home screen also lays out the broader all-in-one toolkit roadmap.
+The current version includes working tools for merging PDFs, visually rotating or cropping pages, and compressing PDFs with local browser optimization. The home screen also lays out the broader all-in-one toolkit roadmap.
 
 ## Features
 
@@ -13,6 +13,8 @@ The current version includes working tools for merging PDFs and visually rotatin
 - Crop page edges with numeric controls and a visual crop overlay
 - Select the current page or apply changes across all pages
 - Preview pages locally with grid and center guides
+- Compress PDFs with browser-side structure optimization
+- Compare original and compressed file sizes before downloading
 - Download generated PDFs directly from the browser
 - Clear coming-soon tool cards for future PDF workflows
 
@@ -31,7 +33,7 @@ Some future conversion features may require server-backed processing, and the UI
 | Split PDF | Coming soon | Browser |
 | Delete Pages | Coming soon | Browser |
 | Reorder Pages | Coming soon | Browser |
-| Compress PDF | Coming soon | Browser |
+| Compress PDF | Ready | Browser |
 | Images to PDF | Coming soon | Browser |
 | PDF to Images | Coming soon | Browser |
 | Page Numbers | Coming soon | Browser |
@@ -97,6 +99,7 @@ src/
     tools.ts               Tool catalog and roadmap metadata
   pages/
     HomePage.tsx           Tool dashboard
+    CompressTool.tsx       PDF compression workflow
     MergeTool.tsx          PDF merge workflow
     RotateCropTool.tsx     Visual rotate and crop workflow
   utils/
@@ -112,4 +115,4 @@ src/
 
 ## Roadmap
 
-Planned next tools include splitting PDFs, deleting pages, reordering pages, compressing files, converting images to PDF, exporting PDF pages as images, adding page numbers, adding watermarks, and eventually supporting server-backed document conversion.
+Planned next tools include splitting PDFs, deleting pages, reordering pages, converting images to PDF, exporting PDF pages as images, adding page numbers, adding watermarks, and eventually supporting server-backed document conversion.

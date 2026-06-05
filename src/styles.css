@@ -392,6 +392,60 @@ p {
   width: 34px;
 }
 
+.compress-summary {
+  align-items: flex-start;
+  background: #fbfaf7;
+  border: 1px solid #e8e4da;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px;
+}
+
+.compress-summary svg {
+  color: #23623c;
+  flex: 0 0 auto;
+}
+
+.compress-summary strong,
+.compress-summary span {
+  display: block;
+}
+
+.compress-summary span {
+  color: #657066;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.metric-box {
+  background: #f1eee6;
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  min-height: 84px;
+  padding: 14px;
+}
+
+.metric-box span {
+  color: #657066;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.metric-box strong {
+  overflow-wrap: anywhere;
+}
+
 .icon-button {
   height: 42px;
   padding: 0;
@@ -730,6 +784,7 @@ p {
   }
 
   .crop-fields,
+  .metric-grid,
   .segmented {
     grid-template-columns: 1fr;
   }

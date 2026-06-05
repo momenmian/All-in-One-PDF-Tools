@@ -67,8 +67,8 @@ export const tools: ToolDefinition[] = [
   {
     name: "Compress PDF",
     route: "/compress",
-    description: "Reduce file size with a clear quality tradeoff.",
-    status: "coming-soon",
+    description: "Optimize PDF structure and reduce file size locally.",
+    status: "available",
     privacy: "Browser",
     icon: FileArchive,
   },
