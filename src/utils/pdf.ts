@@ -119,29 +119,37 @@ export async function rotateCropPdf(
   for (const pageIndex of source.getPageIndices()) {
     const sourcePage = source.getPage(pageIndex);
     const { width, height } = sourcePage.getSize();
+    const sourceAngle = normalizeAngle(sourcePage.getRotation().angle);
+    const displaySize = getDisplaySize(width, height, sourceAngle);
     const crop = cropByPage.get(pageIndex) ?? { top: 0, right: 0, bottom: 0, left: 0 };
     const shouldTransform = selectedPages.has(pageIndex);
-    const angle = shouldTransform ? angleByPage.get(pageIndex) ?? 0 : 0;
-    const left = shouldTransform ? clamp(crop.left, 0, width - 1) : 0;
-    const bottom = shouldTransform ? clamp(crop.bottom, 0, height - 1) : 0;
-    const croppedWidth = shouldTransform ? Math.max(1, width - left - clamp(crop.right, 0, width - left - 1)) : width;
-    const croppedHeight = shouldTransform ? Math.max(1, height - bottom - clamp(crop.top, 0, height - bottom - 1)) : height;
-    const embedded = await output.embedPage(sourcePage);
-    const page = output.addPage([croppedWidth, croppedHeight]);
 
-    if (!shouldTransform || normalizeAngle(angle) === 0) {
-      page.drawPage(embedded, { x: -left, y: -bottom, width, height });
+    if (!shouldTransform) {
+      const [copiedPage] = await output.copyPages(source, [pageIndex]);
+      output.addPage(copiedPage);
       continue;
     }
 
-    const exportAngle = -angle;
+    const angle = shouldTransform ? angleByPage.get(pageIndex) ?? 0 : 0;
+    const left = clamp(crop.left, 0, displaySize.width - 1);
+    const bottom = clamp(crop.bottom, 0, displaySize.height - 1);
+    const croppedWidth = Math.max(1, displaySize.width - left - clamp(crop.right, 0, displaySize.width - left - 1));
+    const croppedHeight = Math.max(1, displaySize.height - bottom - clamp(crop.top, 0, displaySize.height - bottom - 1));
+    const embedded = await output.embedPage(sourcePage);
+    const page = output.addPage([croppedWidth, croppedHeight]);
+
+    const exportAngle = sourceAngle - angle;
     const radians = (exportAngle * Math.PI) / 180;
     const center = { x: width / 2, y: height / 2 };
-    const rotatedCenter = rotatePoint(center.x, center.y, radians);
+    const displayCenter = { x: displaySize.width / 2, y: displaySize.height / 2 };
+
+    // Rotate the display center (not the raw page center) so the translation
+    // accounts for page orientation/rotation when positioning the embedded page.
+    const rotatedCenter = rotatePoint(displayCenter.x, displayCenter.y, radians);
 
     page.drawPage(embedded, {
-      x: center.x - left - rotatedCenter.x,
-      y: center.y - bottom - rotatedCenter.y,
+      x: displayCenter.x - left - rotatedCenter.x,
+      y: displayCenter.y - bottom - rotatedCenter.y,
       width,
       height,
       rotate: degrees(exportAngle),
@@ -166,6 +174,13 @@ function clamp(value: number, min: number, max: number) {
 function normalizeAngle(angle: number) {
   const normalized = angle % 360;
   return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function getDisplaySize(width: number, height: number, angle: number) {
+  const normalizedAngle = normalizeAngle(angle);
+  return normalizedAngle === 90 || normalizedAngle === 270
+    ? { width: height, height: width }
+    : { width, height };
 }
 
 function rotatePoint(x: number, y: number, radians: number) {
