@@ -5,10 +5,11 @@ type UploadZoneProps = {
   multiple?: boolean;
   label: string;
   hint: string;
+  note?: string;
   onFiles: (files: File[]) => void;
 };
 
-export function UploadZone({ multiple = false, label, hint, onFiles }: UploadZoneProps) {
+export function UploadZone({ multiple = false, label, hint, note, onFiles }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -29,6 +30,7 @@ export function UploadZone({ multiple = false, label, hint, onFiles }: UploadZon
       <UploadCloud size={34} aria-hidden="true" />
       <h2>{label}</h2>
       <p>{hint}</p>
+      {note ? <p className="upload-note">{note}</p> : null}
       <button className="primary-button" type="button" onClick={() => inputRef.current?.click()}>
         Choose PDF{multiple ? "s" : ""}
       </button>

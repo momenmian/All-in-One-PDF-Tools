@@ -1,7 +1,15 @@
 import { Download, FileArchive, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UploadZone } from "../components/UploadZone";
-import { CompressionResult, compressPdf, formatBytes, validatePdfFile } from "../utils/pdf";
+import {
+  COMPRESSION_PRESETS,
+  CompressionPreset,
+  CompressionResult,
+  MAX_FILE_SIZE,
+  compressPdf,
+  formatBytes,
+  validatePdfFile,
+} from "../utils/pdf";
 
 export function CompressTool() {
   const [file, setFile] = useState<File | null>(null);
@@ -9,6 +17,15 @@ export function CompressTool() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [resultUrl, setResultUrl] = useState("");
+  const [preset, setPreset] = useState<CompressionPreset>("recommended");
+  const [dpi, setDpi] = useState(150);
+  const [quality, setQuality] = useState(0.75);
+
+  useEffect(() => {
+    return () => {
+      if (resultUrl) URL.revokeObjectURL(resultUrl);
+    };
+  }, [resultUrl]);
 
   async function addFiles(files: File[]) {
     const nextFile = files[0];
@@ -25,6 +42,17 @@ export function CompressTool() {
     setFile(nextFile);
   }
 
+  function selectPreset(nextPreset: CompressionPreset) {
+    setPreset(nextPreset);
+    if (nextPreset !== "custom") {
+      const presetDefaults = COMPRESSION_PRESETS.find((item) => item.id === nextPreset);
+      if (presetDefaults) {
+        setDpi(presetDefaults.dpi);
+        setQuality(presetDefaults.quality);
+      }
+    }
+  }
+
   async function handleCompress() {
     if (!file) {
       setError("Add a PDF before compressing.");
@@ -36,7 +64,11 @@ export function CompressTool() {
     setResult(null);
     setResultUrl("");
     try {
-      const compressed = await compressPdf(file);
+      const compressed = await compressPdf(file, {
+        preset,
+        dpi,
+        quality,
+      });
       setResult(compressed);
       setResultUrl(URL.createObjectURL(compressed.blob));
     } catch {
@@ -58,7 +90,12 @@ export function CompressTool() {
         <span className="trust-note">Files stay in your browser and are not uploaded.</span>
       </div>
 
-      <UploadZone label="Drop one PDF to compress" hint="Best for PDFs with extra structure, unused objects, or unoptimized streams." onFiles={addFiles} />
+      <UploadZone
+        label="Drop one PDF to compress"
+        hint="Best for PDFs with extra structure, unused objects, or unoptimized streams."
+        note={`You can't upload more than ${formatBytes(MAX_FILE_SIZE)} per file.`}
+        onFiles={addFiles}
+      />
 
       {error ? <p className="error-box">{error}</p> : null}
 
@@ -71,10 +108,79 @@ export function CompressTool() {
         <div className="compress-summary">
           <FileArchive size={28} aria-hidden="true" />
           <div>
-            <strong>Standard browser optimization</strong>
-            <span>Rewrites the PDF with object streams and removes unused document overhead where possible.</span>
+            <strong>{preset === "structure" ? "Structure-only rewrite" : "Image compression"}</strong>
+            <span>
+              {preset === "structure"
+                ? "Rewrites the PDF with object streams and removes unused document overhead."
+                : "Renders pages with the selected DPI and recompresses them as JPEG images."}
+            </span>
           </div>
         </div>
+
+        <section className="compression-panel">
+          <div className="section-title">
+            <h2>Compression level</h2>
+            <span>{COMPRESSION_PRESETS.find((item) => item.id === preset)?.label}</span>
+          </div>
+
+          <div className="preset-grid" role="radiogroup" aria-label="Compression level">
+            {COMPRESSION_PRESETS.map((item) => (
+              <button
+                key={item.id}
+                className={preset === item.id ? "preset-card active" : "preset-card"}
+                type="button"
+                aria-pressed={preset === item.id}
+                onClick={() => selectPreset(item.id)}
+              >
+                <strong>{item.label}</strong>
+                <span>{item.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="compression-panel">
+          <div className="section-title">
+            <h2>Advanced image settings</h2>
+            <span>{preset === "custom" ? "Editable" : "Prefilled from the preset"}</span>
+          </div>
+          <p className="muted">
+            DPI controls how much images are downsampled. Quality controls how hard JPEG recompression is applied. You can adjust either one or both.
+          </p>
+          <div className="crop-fields">
+            <label className="field compact">
+              <span>Image DPI</span>
+              <input
+                type="number"
+                min="72"
+                max="600"
+                step="1"
+                value={dpi}
+                disabled={preset !== "custom"}
+                onChange={(event) => {
+                  setPreset("custom");
+                  setDpi(Number(event.target.value));
+                }}
+              />
+            </label>
+            <label className="field compact">
+              <span>Image quality</span>
+              <input
+                type="number"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={quality}
+                disabled={preset !== "custom"}
+                onChange={(event) => {
+                  setPreset("custom");
+                  setQuality(Number(event.target.value));
+                }}
+              />
+            </label>
+          </div>
+          {preset !== "custom" ? <p className="setting-note">Choose Custom to edit DPI and quality separately.</p> : null}
+        </section>
 
         {result ? (
           <div className="metric-grid" aria-label="Compression result">
@@ -89,6 +195,10 @@ export function CompressTool() {
             <div className="metric-box">
               <span>Saved</span>
               <strong>{result.savedBytes > 0 ? `${formatBytes(result.savedBytes)} (${result.savingsPercent.toFixed(1)}%)` : "Already optimized"}</strong>
+            </div>
+            <div className="metric-box">
+              <span>Mode</span>
+              <strong>{COMPRESSION_PRESETS.find((item) => item.id === result.preset)?.label ?? "Custom"}</strong>
             </div>
           </div>
         ) : null}

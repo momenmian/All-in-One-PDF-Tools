@@ -1,6 +1,9 @@
 import { PDFDocument, degrees } from "pdf-lib";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 export const MAX_FILE_SIZE = 50 * 1024 * 1024;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export type PdfValidation = {
   ok: boolean;
@@ -25,6 +28,75 @@ export type CompressionResult = {
   compressedSize: number;
   savedBytes: number;
   savingsPercent: number;
+  preset: CompressionPreset;
+  dpi: number;
+  quality: number;
+};
+
+export type CompressionPreset = "structure" | "recommended" | "highQuality" | "extreme" | "custom";
+
+export type CompressionSettings = {
+  preset: CompressionPreset;
+  dpi: number;
+  quality: number;
+};
+
+export type CompressionPresetDefinition = {
+  id: CompressionPreset;
+  label: string;
+  description: string;
+  dpi: number;
+  quality: number;
+  rasterize: boolean;
+};
+
+export const COMPRESSION_PRESETS: CompressionPresetDefinition[] = [
+  {
+    id: "structure",
+    label: "Structure only",
+    description: "Rewrite the PDF without downsampling images.",
+    dpi: 72,
+    quality: 1,
+    rasterize: false,
+  },
+  {
+    id: "recommended",
+    label: "Recommended",
+    description: "Balanced file size and visual quality.",
+    dpi: 150,
+    quality: 0.75,
+    rasterize: true,
+  },
+  {
+    id: "highQuality",
+    label: "High quality",
+    description: "Sharper output with lighter compression.",
+    dpi: 300,
+    quality: 0.9,
+    rasterize: true,
+  },
+  {
+    id: "extreme",
+    label: "Extreme compression",
+    description: "Smallest file, with more visible quality loss.",
+    dpi: 72,
+    quality: 0.5,
+    rasterize: true,
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    description: "Set your own DPI and image quality.",
+    dpi: 150,
+    quality: 0.75,
+    rasterize: true,
+  },
+];
+
+const DEFAULT_COMPRESSION_SETTINGS: CompressionSettings = {
+  preset: "recommended",
+  dpi: 150,
+  quality: 0.75,
 };
 
 export function formatBytes(bytes: number) {
@@ -45,7 +117,7 @@ export async function validatePdfFile(file: File): Promise<PdfValidation> {
   if (file.size > MAX_FILE_SIZE) {
     return {
       ok: false,
-      message: `${file.name} is ${formatBytes(file.size)}. The v1 limit is ${formatBytes(MAX_FILE_SIZE)} per file.`,
+      message: `${file.name} is ${formatBytes(file.size)}. You can't upload more than ${formatBytes(MAX_FILE_SIZE)} per file.`,
     };
   }
 
@@ -80,31 +152,14 @@ export async function mergePdfs(files: File[]) {
   return pdfBytesToBlob(await output.save());
 }
 
-export async function compressPdf(file: File): Promise<CompressionResult> {
-  const input = await PDFDocument.load(await file.arrayBuffer(), {
-    ignoreEncryption: false,
-    updateMetadata: false,
-  });
-  const output = await PDFDocument.create({ updateMetadata: false });
-  const pages = await output.copyPages(input, input.getPageIndices());
-  pages.forEach((page) => output.addPage(page));
+export async function compressPdf(file: File, settings: CompressionSettings = DEFAULT_COMPRESSION_SETTINGS): Promise<CompressionResult> {
+  const compression = resolveCompressionSettings(settings);
 
-  const compressedBytes = await output.save({
-    useObjectStreams: true,
-    addDefaultPage: false,
-    objectsPerTick: 100,
-    updateFieldAppearances: false,
-  });
-  const blob = pdfBytesToBlob(compressedBytes);
-  const savedBytes = Math.max(0, file.size - blob.size);
+  if (!compression.rasterize) {
+    return rewritePdf(file, compression);
+  }
 
-  return {
-    blob,
-    originalSize: file.size,
-    compressedSize: blob.size,
-    savedBytes,
-    savingsPercent: file.size > 0 ? (savedBytes / file.size) * 100 : 0,
-  };
+  return rasterizePdf(file, compression);
 }
 
 export async function rotateCropPdf(
@@ -165,6 +220,117 @@ function pdfBytesToBlob(bytes: Uint8Array) {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   return new Blob([buffer], { type: "application/pdf" });
+}
+
+function resolveCompressionSettings(settings: CompressionSettings): CompressionPresetDefinition & CompressionSettings {
+  const preset = COMPRESSION_PRESETS.find((item) => item.id === settings.preset) ?? COMPRESSION_PRESETS[1];
+  if (preset.id === "structure") {
+    return { ...preset, preset: preset.id, dpi: 0, quality: 1 };
+  }
+
+  if (preset.id === "custom") {
+    return {
+      ...preset,
+      preset: preset.id,
+      dpi: clamp(settings.dpi, 72, 600),
+      quality: clamp(settings.quality, 0.1, 1),
+    };
+  }
+
+  return {
+    ...preset,
+    preset: preset.id,
+    dpi: preset.dpi,
+    quality: preset.quality,
+  };
+}
+
+async function rewritePdf(file: File, compression: CompressionSettings) {
+  const input = await PDFDocument.load(await file.arrayBuffer(), {
+    ignoreEncryption: false,
+    updateMetadata: false,
+  });
+  const output = await PDFDocument.create({ updateMetadata: false });
+  const pages = await output.copyPages(input, input.getPageIndices());
+  pages.forEach((page) => output.addPage(page));
+
+  const compressedBytes = await output.save({
+    useObjectStreams: true,
+    addDefaultPage: false,
+    objectsPerTick: 100,
+    updateFieldAppearances: false,
+  });
+  return finalizeCompression(file, compressedBytes, compression);
+}
+
+async function rasterizePdf(file: File, compression: CompressionSettings & CompressionPresetDefinition) {
+  const input = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const output = await PDFDocument.create({ updateMetadata: false });
+  const scale = compression.dpi / 72;
+
+  for (let index = 1; index <= input.numPages; index += 1) {
+    const page = await input.getPage(index);
+    const viewport = page.getViewport({ scale, rotation: page.rotate });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    const context = canvas.getContext("2d", { alpha: false });
+
+    if (!context) {
+      throw new Error("Unable to create a canvas context for compression.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: context, viewport, background: "#ffffff" }).promise;
+
+    const blob = await canvasToJpegBlob(canvas, compression.quality);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const embedded = await output.embedJpg(bytes);
+    const displaySize = getDisplaySize(viewport.width / scale, viewport.height / scale, page.rotate);
+    const pdfPage = output.addPage([displaySize.width, displaySize.height]);
+
+    pdfPage.drawImage(embedded, {
+      x: 0,
+      y: 0,
+      width: displaySize.width,
+      height: displaySize.height,
+    });
+  }
+
+  return finalizeCompression(file, await output.save({ useObjectStreams: true, addDefaultPage: false }), compression);
+}
+
+async function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error("Unable to encode the compressed page image."));
+      },
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
+function finalizeCompression(file: File, compressedBytes: Uint8Array, compression: CompressionSettings) {
+  const blob = pdfBytesToBlob(compressedBytes);
+  const savedBytes = Math.max(0, file.size - blob.size);
+
+  return {
+    blob,
+    originalSize: file.size,
+    compressedSize: blob.size,
+    savedBytes,
+    savingsPercent: file.size > 0 ? (savedBytes / file.size) * 100 : 0,
+    preset: compression.preset,
+    dpi: compression.dpi,
+    quality: compression.quality,
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

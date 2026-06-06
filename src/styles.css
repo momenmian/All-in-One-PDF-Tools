@@ -277,6 +277,13 @@ p {
   color: #657066;
 }
 
+.upload-note {
+  color: #a53b21;
+  font-size: 0.92rem;
+  font-weight: 750;
+  max-width: 34rem;
+}
+
 .upload-zone input {
   display: none;
 }
@@ -419,10 +426,58 @@ p {
   margin-top: 4px;
 }
 
+.compression-panel {
+  border-top: 1px solid #ece7dc;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.preset-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 12px;
+}
+
+.preset-card {
+  align-items: flex-start;
+  background: #fbfaf7;
+  border: 1px solid #e8e4da;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px;
+  text-align: left;
+}
+
+.preset-card strong {
+  font-size: 0.98rem;
+}
+
+.preset-card span {
+  color: #657066;
+  line-height: 1.45;
+}
+
+.preset-card.active {
+  background: #fff7f2;
+  border-color: #e84d2a;
+}
+
+.setting-note {
+  color: #a53b21;
+  font-size: 0.92rem;
+  font-weight: 750;
+  margin-top: 10px;
+}
+
 .metric-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 16px 0;
 }
 
@@ -786,6 +841,10 @@ p {
   .crop-fields,
   .metric-grid,
   .segmented {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-grid {
     grid-template-columns: 1fr;
   }
 }

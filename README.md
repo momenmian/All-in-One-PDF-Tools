@@ -14,6 +14,7 @@ The current version includes working tools for merging PDFs, visually rotating o
 - Select the current page or apply changes across all pages
 - Preview pages locally with grid and center guides
 - Compress PDFs with browser-side structure optimization
+- Compress PDFs with presets for structure-only, recommended, high-quality, extreme, or custom DPI/quality settings
 - Compare original and compressed file sizes before downloading
 - Download generated PDFs directly from the browser
 - Clear coming-soon tool cards for future PDF workflows
@@ -110,6 +111,7 @@ src/
 
 - The current per-file limit is 50 MB.
 - Password-protected PDFs are rejected with a user-facing message.
+- Compress PDF now includes image DPI and quality controls for custom output sizing.
 - Large production chunks are expected because PDF rendering and manipulation libraries are substantial.
 - The app currently uses simple path-based routing through `window.location.pathname`.
 
