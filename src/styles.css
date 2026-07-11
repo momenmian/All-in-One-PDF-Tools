@@ -419,6 +419,65 @@ p {
   margin-top: 4px;
 }
 
+.unlock-layout {
+  align-items: stretch;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(250px, 0.65fr);
+  margin: 16px 0;
+}
+
+.unlock-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.unlock-panel .compress-summary {
+  margin: 0;
+}
+
+.unlock-facts {
+  display: grid;
+  gap: 10px;
+}
+
+.unlock-facts div {
+  background: #fbfaf7;
+  border: 1px solid #e8e4da;
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+}
+
+.unlock-facts svg {
+  color: #23623c;
+}
+
+.unlock-facts span {
+  color: #657066;
+  line-height: 1.45;
+}
+
+.progress-track {
+  background: #f1eee6;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.progress-track span {
+  background: #23623c;
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
+}
+
+.progress-label {
+  font-size: 0.9rem;
+  margin: -4px 0 0;
+}
+
 .metric-grid {
   display: grid;
   gap: 10px;
@@ -749,7 +808,8 @@ p {
   }
 
   .hero,
-  .editor-layout {
+  .editor-layout,
+  .unlock-layout {
     grid-template-columns: 1fr;
   }
 

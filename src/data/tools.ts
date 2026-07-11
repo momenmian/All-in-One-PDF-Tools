@@ -7,6 +7,7 @@ import {
   FileStack,
   Image,
   ListOrdered,
+  LockKeyholeOpen,
   Scissors,
   Stamp,
   Trash2,
@@ -71,6 +72,14 @@ export const tools: ToolDefinition[] = [
     status: "available",
     privacy: "Browser",
     icon: FileArchive,
+  },
+  {
+    name: "Password Remover",
+    route: "/password-remover",
+    description: "Unlock a protected PDF with its password and export an unencrypted copy.",
+    status: "available",
+    privacy: "Browser",
+    icon: LockKeyholeOpen,
   },
   {
     name: "Images to PDF",

@@ -2,6 +2,7 @@ import { FileText } from "lucide-react";
 import { CompressTool } from "./pages/CompressTool";
 import { HomePage } from "./pages/HomePage";
 import { MergeTool } from "./pages/MergeTool";
+import { PasswordRemoverTool } from "./pages/PasswordRemoverTool";
 import { RotateCropTool } from "./pages/RotateCropTool";
 
 export function App() {
@@ -23,6 +24,8 @@ export function App() {
           <MergeTool />
         ) : path === "/rotate-crop" ? (
           <RotateCropTool />
+        ) : path === "/password-remover" ? (
+          <PasswordRemoverTool />
         ) : path === "/compress" ? (
           <CompressTool />
         ) : (
