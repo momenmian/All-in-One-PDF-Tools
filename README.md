@@ -15,7 +15,7 @@ The current version includes working tools for merging PDFs, visually rotating o
 - Preview pages locally with grid and center guides
 - Compress PDFs with browser-side structure optimization
 - Compare original and compressed file sizes before downloading
-- Remove a known PDF password by rebuilding an unencrypted browser-local copy
+- Password Remover: remove a known PDF password by rebuilding an unencrypted browser-local copy
 - Track page-by-page unlock progress before downloading
 - Download generated PDFs directly from the browser
 - Clear coming-soon tool cards for future PDF workflows
@@ -28,20 +28,20 @@ Some future conversion features may require server-backed processing, and the UI
 
 ## Available Tools
 
-| Tool | Status | Processing |
-| --- | --- | --- |
-| Merge PDFs | Ready | Browser |
-| Rotate & Crop | Ready | Browser |
-| Split PDF | Coming soon | Browser |
-| Delete Pages | Coming soon | Browser |
-| Reorder Pages | Coming soon | Browser |
-| Compress PDF | Ready | Browser |
-| Password Remover | Ready | Browser |
-| Images to PDF | Coming soon | Browser |
-| PDF to Images | Coming soon | Browser |
-| Page Numbers | Coming soon | Browser |
-| Watermark | Coming soon | Browser |
-| Convert PDF | Coming soon | Server-backed later |
+| Tool | Route | Status | Processing |
+| --- | --- | --- | --- |
+| Merge PDFs | `/merge` | Ready | Browser |
+| Rotate & Crop | `/rotate-crop` | Ready | Browser |
+| Compress PDF | `/compress` | Ready | Browser |
+| Password Remover | `/password-remover` | Ready | Browser |
+| Split PDF | `/split` | Coming soon | Browser |
+| Delete Pages | `/delete-pages` | Coming soon | Browser |
+| Reorder Pages | `/reorder-pages` | Coming soon | Browser |
+| Images to PDF | `/images-to-pdf` | Coming soon | Browser |
+| PDF to Images | `/pdf-to-images` | Coming soon | Browser |
+| Page Numbers | `/page-numbers` | Coming soon | Browser |
+| Watermark | `/watermark` | Coming soon | Browser |
+| Convert PDF | `/convert` | Coming soon | Server-backed later |
 
 ## Tech Stack
 
