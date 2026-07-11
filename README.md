@@ -2,7 +2,7 @@
 
 PDFForge is a local-first PDF toolkit built with React, TypeScript, and Vite. It is designed to make everyday PDF work fast, private, and approachable by processing files directly in the browser whenever possible.
 
-The current version includes working tools for merging PDFs, visually rotating or cropping pages, and compressing PDFs with local browser optimization. The home screen also lays out the broader all-in-one toolkit roadmap.
+The current version includes working tools for merging PDFs, visually rotating or cropping pages, compressing PDFs with local browser optimization, and removing known PDF passwords by creating an unlocked copy. The home screen also lays out the broader all-in-one toolkit roadmap.
 
 ## Features
 
@@ -15,12 +15,14 @@ The current version includes working tools for merging PDFs, visually rotating o
 - Preview pages locally with grid and center guides
 - Compress PDFs with browser-side structure optimization
 - Compare original and compressed file sizes before downloading
+- Remove a known PDF password by rebuilding an unencrypted browser-local copy
+- Track page-by-page unlock progress before downloading
 - Download generated PDFs directly from the browser
 - Clear coming-soon tool cards for future PDF workflows
 
 ## Local-First Privacy
 
-PDFForge is built around a browser-first workflow. The implemented tools run locally in the user's browser using `pdf-lib` and `pdfjs-dist`, so uploaded files are not sent to a server for merging, previewing, rotating, or cropping.
+PDFForge is built around a browser-first workflow. The implemented tools run locally in the user's browser using `pdf-lib` and `pdfjs-dist`, so uploaded files are not sent to a server for merging, previewing, rotating, cropping, compressing, or password removal.
 
 Some future conversion features may require server-backed processing, and the UI marks those separately.
 
@@ -34,6 +36,7 @@ Some future conversion features may require server-backed processing, and the UI
 | Delete Pages | Coming soon | Browser |
 | Reorder Pages | Coming soon | Browser |
 | Compress PDF | Ready | Browser |
+| Password Remover | Ready | Browser |
 | Images to PDF | Coming soon | Browser |
 | PDF to Images | Coming soon | Browser |
 | Page Numbers | Coming soon | Browser |
@@ -45,8 +48,8 @@ Some future conversion features may require server-backed processing, and the UI
 - React 18
 - TypeScript
 - Vite
-- `pdf-lib` for PDF creation, merging, rotation, and cropping output
-- `pdfjs-dist` for PDF page preview rendering
+- `pdf-lib` for PDF creation, merging, rotation, cropping, compression output, and unlocked PDF rebuilding
+- `pdfjs-dist` for PDF page preview rendering and password-protected PDF opening
 - `@dnd-kit` for drag-and-drop ordering
 - `lucide-react` for icons
 
@@ -101,6 +104,8 @@ src/
     HomePage.tsx           Tool dashboard
     CompressTool.tsx       PDF compression workflow
     MergeTool.tsx          PDF merge workflow
+    PasswordRemoverTool.tsx
+                            Known-password PDF unlock workflow
     RotateCropTool.tsx     Visual rotate and crop workflow
   utils/
     pdf.ts                 PDF validation and transformation helpers
@@ -109,7 +114,8 @@ src/
 ## Notes
 
 - The current per-file limit is 50 MB.
-- Password-protected PDFs are rejected with a user-facing message.
+- Merge, compress, and rotate/crop reject password-protected PDFs with a user-facing message.
+- Password Remover requires the user to know the document password. It creates a flattened unencrypted PDF, so selectable text, form fields, and some document structure may not be preserved.
 - Large production chunks are expected because PDF rendering and manipulation libraries are substantial.
 - The app currently uses simple path-based routing through `window.location.pathname`.
 
